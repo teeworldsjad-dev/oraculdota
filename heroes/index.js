@@ -9,8 +9,10 @@ import lina from "./lina.js";
 import phantomAssassin from "./phantom_assassin.js";
 import invoker from "./invoker.js";
 import muerta from "./muerta.js";
+import meepo from "./meepo.js";
 
-// Новый герой = новый файл + импорт + строка в массиве. Больше ничего.
+// Новый герой = новый файл + импорт + строка в массиве.
+// prophecyOnly: true — герой участвует только в рулетке-пророчестве.
 const heroes = [
   pudge,
   shadowShaman,
@@ -23,6 +25,7 @@ const heroes = [
   phantomAssassin,
   invoker,
   muerta,
+  meepo,
 ];
 
 export default heroes;
