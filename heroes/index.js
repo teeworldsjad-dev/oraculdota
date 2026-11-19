@@ -8,6 +8,7 @@ import lion from "./lion.js";
 import lina from "./lina.js";
 import phantomAssassin from "./phantom_assassin.js";
 import invoker from "./invoker.js";
+import muerta from "./muerta.js";
 
 // Новый герой = новый файл + импорт + строка в массиве. Больше ничего.
 const heroes = [
@@ -21,6 +22,7 @@ const heroes = [
   lina,
   phantomAssassin,
   invoker,
+  muerta,
 ];
 
 export default heroes;
