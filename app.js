@@ -4,12 +4,18 @@ import {
   oraclePhrases,
   funnyItems,
   playStyles,
+  oaths,
+  bans,
+  winConditions,
+  rewards,
+  titles,
+  comboLines,
   randomItem,
   randomItems,
   randomInt,
 } from "./random.js";
 
-// ---------- Telegram (не обязателен: вне Telegram это обычный сайт) ----------
+// ---------- Telegram ----------
 const tg = window.Telegram?.WebApp;
 const inTelegram = Boolean(tg && tg.platform && tg.platform !== "unknown");
 
@@ -20,16 +26,17 @@ if (inTelegram && tg.isVersionAtLeast("6.1")) {
   tg.setBackgroundColor("#0d0716");
 }
 if (inTelegram && tg.isVersionAtLeast("7.7")) {
-  tg.disableVerticalSwipes(); // чтобы апп не закрывался случайным свайпом
+  tg.disableVerticalSwipes();
 }
 
 function haptic(kind) {
   if (!inTelegram || !tg.HapticFeedback || !tg.isVersionAtLeast("6.1")) return;
   try {
     if (kind === "success") tg.HapticFeedback.notificationOccurred("success");
+    else if (kind === "warning") tg.HapticFeedback.notificationOccurred("warning");
     else if (kind === "selection") tg.HapticFeedback.selectionChanged();
     else tg.HapticFeedback.impactOccurred("light");
-  } catch (_) { /* хаптик не критичен */ }
+  } catch (_) {}
 }
 
 // ---------- DOM ----------
@@ -42,39 +49,56 @@ const slotsEl = $("slots");
 const spinBtn = $("spinBtn");
 const againBtn = $("againBtn");
 const shareBtn = $("shareBtn");
+const acceptBtn = $("acceptBtn");
 const resultEl = $("result");
 const resultCard = $("resultCard");
 const toastEl = $("toast");
 const emptyEl = $("empty");
+const bannerEl = $("contractBanner");
+const bannerText = $("bannerText");
+const bannerDone = $("bannerDone");
 const modeButtons = document.querySelectorAll(".mode-btn");
 const reelTracks = [$("reelHeroes"), $("reelItems"), $("reelStyles")];
 
 // ---------- Состояние ----------
 let mode = "roulette";
 let spinning = false;
-let lastResult = null;
+let lastShare = null; // { kind: "prophecy" | "contract", data }
 let oracleTimer = null;
 let toastTimer = null;
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// ---------- Мелкие помощники ----------
+// ---------- Безопасное хранилище ----------
+function storeGet(key) {
+  try { return localStorage.getItem(key); } catch (_) { return null; }
+}
+function storeSet(key, value) {
+  try { localStorage.setItem(key, value); } catch (_) {}
+}
+function storeDel(key) {
+  try { localStorage.removeItem(key); } catch (_) {}
+}
+function nextSerial() {
+  const n = (parseInt(storeGet("oracle_serial") || "0", 10) || 0) + 1;
+  storeSet("oracle_serial", String(n));
+  return String(n).padStart(4, "0");
+}
+
+// ---------- Мелочи ----------
 function showToast(text) {
   toastEl.textContent = text;
   toastEl.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2600);
 }
-
 function setOracle(text) { oracleEl.textContent = text; }
-
 function startOracleChatter() {
   clearInterval(oracleTimer);
   oracleEl.classList.add("thinking");
   setOracle(randomItem(oraclePhrases));
   oracleTimer = setInterval(() => setOracle(randomItem(oraclePhrases)), 650);
 }
-
 function stopOracleChatter() {
   clearInterval(oracleTimer);
   oracleEl.classList.remove("thinking");
@@ -86,14 +110,12 @@ const heroSlotCell = (h) =>
   `<div class="s-cell"><span class="s-emoji">${h.emoji}</span><span>${h.name}</span></div>`;
 const textSlotCell = (t) => `<div class="s-cell"><span>${t}</span></div>`;
 
-// Плавный разгон и остановка ленты через transform.
-// Резолвится по transitionend, страховочный таймер — на случай reduced motion.
 function glide(track, axis, distance, duration) {
   return new Promise((resolve) => {
     const move = (px) => (axis === "x" ? `translateX(${px}px)` : `translateY(${px}px)`);
     track.style.transition = "none";
     track.style.transform = move(0);
-    void track.offsetWidth; // форсируем reflow, чтобы старт был с нуля
+    void track.offsetWidth;
     track.style.transition = `transform ${duration}ms cubic-bezier(0.12, 0.75, 0.12, 1)`;
     track.style.transform = move(-distance);
     let done = false;
@@ -103,7 +125,7 @@ function glide(track, axis, distance, duration) {
   });
 }
 
-// ---------- Рулетка ----------
+// ---------- Рулетка: пророчество ----------
 function fillRouletteIdle() {
   rouletteTrack.style.transition = "none";
   rouletteTrack.style.transform = "translateX(0)";
@@ -112,8 +134,6 @@ function fillRouletteIdle() {
 
 async function spinRoulette() {
   const hero = randomItem(heroes);
-
-  // Длинная случайная лента, победитель — ближе к концу.
   const cells = [];
   for (let i = 0; i < heroes.length * 3 + 8; i++) cells.push(randomItem(heroes));
   const winnerIndex = cells.length;
@@ -128,12 +148,51 @@ async function spinRoulette() {
 
   await glide(rouletteTrack, "x", distance, 4200 + Math.random() * 600);
   rouletteTrack.children[winnerIndex].classList.add("winner");
-  return { hero, bonus: null };
+  return hero;
 }
 
-// ---------- Слоты ----------
+function makeProphecy(hero) {
+  return { hero, guide: randomItem(hero.guides), tips: randomItems(advices, randomInt(1, 2)) };
+}
+
+function renderProphecy(res) {
+  const { hero, guide, tips } = res;
+  resultCard.innerHTML = `
+    <div class="hero-head">
+      <div class="hero-emoji">${hero.emoji}</div>
+      <div class="hero-titles">
+        <div class="hero-name">${hero.name}</div>
+        <div class="hero-fun">«${hero.funName}»</div>
+      </div>
+      <div class="hero-role">${hero.role}</div>
+    </div>
+    <div class="guide-title">📜 ${guide.title}</div>
+    <p class="mission">${guide.mission}</p>
+    <div class="block">
+      <h3>🎒 Сборка</h3>
+      <ul class="items">${guide.items.map((i) => `<li>${i}</li>`).join("")}</ul>
+    </div>
+    <div class="block">
+      <h3>🗺️ План игры</h3>
+      <ol class="plan">${guide.plan.map((s) => `<li>${s}</li>`).join("")}</ol>
+    </div>
+    <blockquote class="phrase">💬 ${guide.phrase}</blockquote>
+    <div class="block tips">
+      <h3>🔮 ${tips.length > 1 ? "Советы" : "Совет"} оракула</h3>
+      <ul>${tips.map((t) => `<li>${t}</li>`).join("")}</ul>
+    </div>`;
+  acceptBtn.classList.add("hidden");
+  lastShare = { kind: "prophecy", data: res };
+  revealResult();
+}
+
+// ---------- Слоты: контракт ----------
 function fillSlotsIdle() {
-  const pools = [heroes.map(heroSlotCell), funnyItems.map(textSlotCell), playStyles.map(textSlotCell)];
+  const pools = [
+    heroes.map(heroSlotCell),
+    funnyItems.map(textSlotCell),
+    playStyles.map((s) => textSlotCell(s.name)),
+  ];
   reelTracks.forEach((track, i) => {
     track.style.transition = "none";
     track.style.transform = "translateY(0)";
@@ -149,9 +208,9 @@ async function spinSlots() {
   const setups = [
     { track: reelTracks[0], pool: heroes.map(heroSlotCell), winner: heroSlotCell(hero) },
     { track: reelTracks[1], pool: funnyItems.map(textSlotCell), winner: textSlotCell(item) },
-    { track: reelTracks[2], pool: playStyles.map(textSlotCell), winner: textSlotCell(style) },
+    { track: reelTracks[2], pool: playStyles.map((s) => textSlotCell(s.name)), winner: textSlotCell(style.name) },
   ];
-  const durations = [1600, 2400, 3200]; // барабаны останавливаются по очереди
+  const durations = [1600, 2400, 3200];
 
   const jobs = setups.map((s, i) => {
     const cells = [];
@@ -159,7 +218,6 @@ async function spinSlots() {
     const winnerIndex = cells.length;
     cells.push(s.winner, randomItem(s.pool), randomItem(s.pool));
     s.track.innerHTML = cells.join("");
-
     const cellH = s.track.children[0].offsetHeight;
     return glide(s.track, "y", winnerIndex * cellH, durations[i] + Math.random() * 250).then(() => {
       s.track.children[winnerIndex].classList.add("winner");
@@ -168,51 +226,117 @@ async function spinSlots() {
   });
 
   await Promise.all(jobs);
-  return { hero, bonus: { item, style } };
+  return { hero, item, style };
 }
 
-// ---------- Результат ----------
-function makeResult(hero, bonus) {
+function findCombo(hero, item, style) {
+  for (const c of comboLines) {
+    if (c.heroId && c.heroId !== hero.id) continue;
+    if (c.item && c.item !== item) continue;
+    if (c.style && c.style !== style.name) continue;
+    return c.text;
+  }
+  return null;
+}
+
+function makeContract(hero, item, style) {
   return {
+    serial: nextSerial(),
     hero,
-    guide: randomItem(hero.guides),
-    tips: randomItems(advices, randomInt(1, 2)),
-    bonus,
+    item,
+    style,
+    title: randomItem(titles),
+    oath: randomItem(oaths),
+    ban: randomItem(bans),
+    win: randomItem(winConditions),
+    reward: randomItem(rewards),
+    tip: randomItem(advices),
+    combo: findCombo(hero, item, style),
   };
 }
 
-function renderResult(res) {
-  const { hero, guide, tips, bonus } = res;
+function renderContract(c) {
   resultCard.innerHTML = `
-    <div class="hero-head">
-      <div class="hero-emoji">${hero.emoji}</div>
-      <div class="hero-titles">
-        <div class="hero-name">${hero.name}</div>
-        <div class="hero-fun">«${hero.funName}»</div>
+    <div class="contract" id="contractCard">
+      <div class="contract-top">
+        <span class="contract-serial">Контракт №${c.serial}</span>
+        <span class="contract-seal">заверено оракулом</span>
       </div>
-      <div class="hero-role">${hero.role}</div>
-    </div>
-    <div class="guide-title">📜 ${guide.title}</div>
-    <p class="mission">${guide.mission}</p>
-    ${bonus ? `<div class="bonus">🎰 Бонус барабанов: предмет <b>«${bonus.item}»</b> и стиль игры <b>«${bonus.style}»</b>. Совмести несовместимое.</div>` : ""}
-    <div class="block">
-      <h3>🎒 Сборка</h3>
-      <ul class="items">${guide.items.map((i) => `<li>${i}</li>`).join("")}</ul>
-    </div>
-    <div class="block">
-      <h3>🗺️ План игры</h3>
-      <ol class="plan">${guide.plan.map((s) => `<li>${s}</li>`).join("")}</ol>
-    </div>
-    <blockquote class="phrase">💬 ${guide.phrase}</blockquote>
-    <div class="block tips">
-      <h3>🔮 ${tips.length > 1 ? "Советы" : "Совет"} оракула</h3>
-      <ul>${tips.map((t) => `<li>${t}</li>`).join("")}</ul>
+      <div class="hero-head">
+        <div class="hero-emoji">${c.hero.emoji}</div>
+        <div class="hero-titles">
+          <div class="hero-name">${c.hero.name}</div>
+          <div class="hero-fun">«${c.hero.funName}»</div>
+        </div>
+        <div class="hero-role">${c.hero.role}</div>
+      </div>
+      <div class="contract-reels">
+        <span class="chip chip-style">🎭 ${c.style.name}</span>
+        <span class="chip chip-item">🎁 ${c.item}</span>
+        <span class="chip chip-title">🏷 ${c.title}</span>
+      </div>
+      <div class="style-desc">${c.style.desc}</div>
+      ${c.combo ? `<div class="combo">⚡ Комбо: ${c.combo}</div>` : ""}
+      <div class="contract-grid">
+        <div class="clause"><h4>📜 Обет</h4><p>${c.oath}</p></div>
+        <div class="clause"><h4>🚫 Запрет</h4><p>${c.ban}</p></div>
+        <div class="clause"><h4>🏆 Победа засчитывается, если</h4><p>${c.win}</p></div>
+        <div class="clause"><h4>🎁 Награда</h4><p>${c.reward}</p></div>
+      </div>
+      <div class="contract-ps">🔮 P.S. ${c.tip}</div>
+      <div class="stamp">Принято</div>
     </div>`;
+  acceptBtn.classList.remove("hidden");
+  acceptBtn.disabled = false;
+  acceptBtn.textContent = "🤝 Принять контракт";
+  lastShare = { kind: "contract", data: c };
+  revealResult();
+}
 
+function revealResult() {
   resultEl.classList.remove("hidden", "pop");
   void resultEl.offsetWidth;
   resultEl.classList.add("pop");
   resultEl.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// ---------- Принятие / завершение контракта ----------
+function refreshBanner() {
+  const raw = storeGet("oracle_contract");
+  if (!raw) { bannerEl.classList.add("hidden"); return; }
+  try {
+    const c = JSON.parse(raw);
+    bannerText.textContent = `${c.hero.emoji} ${c.hero.name} · ${c.style.name} · №${c.serial}`;
+    bannerEl.classList.remove("hidden");
+  } catch (_) {
+    bannerEl.classList.add("hidden");
+  }
+}
+
+function acceptContract() {
+  if (!lastShare || lastShare.kind !== "contract") return;
+  const c = lastShare.data;
+  storeSet("oracle_contract", JSON.stringify(c));
+  const card = $("contractCard");
+  if (card) card.classList.add("accepted");
+  acceptBtn.disabled = true;
+  acceptBtn.textContent = "✓ Принято";
+  refreshBanner();
+  haptic("success");
+  showToast("🤝 Контракт принят. Оракул следит. Он всегда следит.");
+}
+
+function finishContract() {
+  storeDel("oracle_contract");
+  refreshBanner();
+  const card = $("contractCard");
+  if (card) card.classList.remove("accepted");
+  if (lastShare && lastShare.kind === "contract") {
+    acceptBtn.disabled = false;
+    acceptBtn.textContent = "🤝 Принять контракт";
+  }
+  haptic("selection");
+  showToast("📜 Контракт закрыт. Оракул делает вид, что гордится.");
 }
 
 // ---------- Главный спин ----------
@@ -221,18 +345,28 @@ async function spin() {
   spinning = true;
   spinBtn.disabled = true;
   againBtn.disabled = true;
+  acceptBtn.disabled = true;
   spinBtn.textContent = "🔮 Оракул думает…";
   resultEl.classList.add("hidden");
   haptic("tap");
   startOracleChatter();
 
   try {
-    const outcome = mode === "roulette" ? await spinRoulette() : await spinSlots();
-    haptic("success");
-    lastResult = makeResult(outcome.hero, outcome.bonus);
-    await wait(450); // пауза, чтобы полюбить победителя
-    renderResult(lastResult);
-    setOracle("Судьба сказала своё слово. Читай и удивляйся. 📜");
+    if (mode === "roulette") {
+      const hero = await spinRoulette();
+      haptic("success");
+      const res = makeProphecy(hero);
+      await wait(450);
+      renderProphecy(res);
+      setOracle("Судьба сказала своё слово. Читай и удивляйся. 📜");
+    } else {
+      const { hero, item, style } = await spinSlots();
+      haptic("warning");
+      const contract = makeContract(hero, item, style);
+      await wait(450);
+      renderContract(contract);
+      setOracle("Контракт составлен. Подписывай кровью. Или кнопкой. 🎰");
+    }
   } finally {
     stopOracleChatter();
     spinning = false;
@@ -250,6 +384,7 @@ function setMode(next) {
   rouletteEl.classList.toggle("hidden", mode !== "roulette");
   slotsEl.classList.toggle("hidden", mode !== "slots");
   resultEl.classList.add("hidden");
+  acceptBtn.classList.add("hidden");
   setOracle(mode === "roulette"
     ? "Лента судьбы заряжена. Жми «Крутить»."
     : "Барабаны заряжены абсурдом. Жми «Крутить».");
@@ -257,17 +392,30 @@ function setMode(next) {
 }
 
 // ---------- Поделиться ----------
-function buildShareText(res) {
-  const { hero, guide, tips, bonus } = res;
+function buildShareText(share) {
+  if (share.kind === "prophecy") {
+    const { hero, guide, tips } = share.data;
+    return [
+      "🔮 Дота-Оракул выдал мне пророчество:",
+      `${hero.emoji} ${hero.name} — «${hero.funName}» (${hero.role})`,
+      `📜 Гайд: ${guide.title}`,
+      `🎒 Сборка: ${guide.items.join(", ")}`,
+      `💬 ${guide.phrase}`,
+      `✨ Совет: ${tips[0]}`,
+    ].join("\n");
+  }
+  const c = share.data;
   return [
-    "🔮 Дота-Оракул выдал мне героя:",
-    `${hero.emoji} ${hero.name} — «${hero.funName}» (${hero.role})`,
-    `📜 Гайд: ${guide.title}`,
-    `🎒 Сборка: ${guide.items.join(", ")}`,
-    bonus ? `🎰 Бонус: «${bonus.item}» + стиль «${bonus.style}»` : null,
-    `💬 ${guide.phrase}`,
-    `✨ Совет: ${tips[0]}`,
-  ].filter(Boolean).join("\n");
+    `🎰 Контракт №${c.serial} · Дота-Оракул`,
+    `${c.hero.emoji} ${c.hero.name} — «${c.hero.funName}»`,
+    `🎭 Стиль: ${c.style.name}`,
+    `🏷 Титул: ${c.title}`,
+    `📜 Обет: ${c.oath}`,
+    `🚫 Запрет: ${c.ban}`,
+    `🏆 Победа засчитывается, если ${c.win}`,
+    `🎁 Награда: ${c.reward}`,
+    "Сможешь хуже?",
+  ].join("\n");
 }
 
 async function copyText(text) {
@@ -276,7 +424,7 @@ async function copyText(text) {
       await navigator.clipboard.writeText(text);
       return true;
     }
-  } catch (_) { /* пробуем запасной способ */ }
+  } catch (_) {}
   try {
     const ta = document.createElement("textarea");
     ta.value = text;
@@ -293,12 +441,12 @@ async function copyText(text) {
 }
 
 async function shareResult() {
-  if (!lastResult) {
+  if (!lastShare) {
     showToast("Сначала крути — потом делись судьбой 🔮");
     return;
   }
   haptic("tap");
-  const text = buildShareText(lastResult);
+  const text = buildShareText(lastShare);
   const pageUrl = location.protocol.startsWith("http") ? location.href.split("#")[0] : "";
 
   if (inTelegram && tg.openTelegramLink) {
@@ -308,12 +456,12 @@ async function shareResult() {
     try {
       tg.openTelegramLink(shareUrl);
       return;
-    } catch (_) { /* не вышло — копируем текст */ }
+    } catch (_) {}
   }
 
   const copied = await copyText(pageUrl ? text + "\n\n" + pageUrl : text);
   showToast(copied
-    ? "📋 Гайд скопирован! Кидай друзьям в чат."
+    ? "📋 Скопировано! Кидай друзьям в чат."
     : "😅 Не получилось скопировать. Попробуй ещё раз.");
 }
 
@@ -328,9 +476,12 @@ function init() {
   }
   fillRouletteIdle();
   fillSlotsIdle();
+  refreshBanner();
   spinBtn.addEventListener("click", spin);
   againBtn.addEventListener("click", spin);
   shareBtn.addEventListener("click", shareResult);
+  acceptBtn.addEventListener("click", acceptContract);
+  bannerDone.addEventListener("click", finishContract);
   modeButtons.forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
 }
 
