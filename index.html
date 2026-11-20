@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0d0716" />
+  <meta name="theme-color" content="#070a14" />
   <title>Дота-Оракул 🔮 — пророчества и контракты</title>
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="combo.css" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
@@ -14,7 +15,7 @@
     <header class="header">
       <div class="logo">🔮</div>
       <h1>Дота-Оракул</h1>
-      <p class="subtitle">Рулетка выдаёт судьбу. Слоты выдают контракт. Оба варианта тебе не понравятся.</p>
+      <p class="subtitle">Рулетка выдаёт судьбу. Слоты выдают контракт. Оракул считает синергию и не несёт ответственности.</p>
     </header>
 
     <div class="mode-switch">
@@ -62,6 +63,7 @@
       <div class="result-card" id="resultCard"></div>
       <div class="result-actions">
         <button class="btn btn-accept hidden" id="acceptBtn">🤝 Принять контракт</button>
+        <button class="btn btn-reroll hidden" id="rerollBtn">🎲 Другой вердикт</button>
         <button class="btn btn-ghost" id="againBtn">🔁 Крутить снова</button>
         <button class="btn btn-share" id="shareBtn">📣 Поделиться</button>
       </div>
@@ -69,7 +71,7 @@
 
     <footer class="disclaimer">
       Это шуточное фан-приложение. Не связано с Valve и Dota 2.
-      Все гайды и контракты — абсурд и шутка: играй честно, уважай команду и получай удовольствие.
+      Все гайды, контракты и синергии — абсурд и шутка: играй честно, уважай команду и получай удовольствие.
       Dota 2 — товарный знак Valve Corporation.
     </footer>
 

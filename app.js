@@ -14,6 +14,7 @@ import {
   randomItems,
   randomInt,
 } from "./random.js";
+import { generateExtras } from "./generator.js";
 
 // ---------- Telegram ----------
 const tg = window.Telegram?.WebApp;
@@ -22,8 +23,8 @@ const inTelegram = Boolean(tg && tg.platform && tg.platform !== "unknown");
 tg?.ready();
 tg?.expand();
 if (inTelegram && tg.isVersionAtLeast("6.1")) {
-  tg.setHeaderColor("#0d0716");
-  tg.setBackgroundColor("#0d0716");
+  tg.setHeaderColor("#070a14");
+  tg.setBackgroundColor("#070a14");
 }
 if (inTelegram && tg.isVersionAtLeast("7.7")) {
   tg.disableVerticalSwipes();
@@ -50,6 +51,7 @@ const spinBtn = $("spinBtn");
 const againBtn = $("againBtn");
 const shareBtn = $("shareBtn");
 const acceptBtn = $("acceptBtn");
+const rerollBtn = $("rerollBtn");
 const resultEl = $("result");
 const resultCard = $("resultCard");
 const toastEl = $("toast");
@@ -60,6 +62,10 @@ const bannerDone = $("bannerDone");
 const modeButtons = document.querySelectorAll(".mode-btn");
 const reelTracks = [$("reelHeroes"), $("reelItems"), $("reelStyles")];
 
+// ---------- Пулы героев ----------
+const slotHeroes = heroes.filter((h) => !h.prophecyOnly);
+const slotPool = slotHeroes.length > 0 ? slotHeroes : heroes;
+
 // ---------- Состояние ----------
 let mode = "roulette";
 let spinning = false;
@@ -69,7 +75,7 @@ let toastTimer = null;
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// ---------- Безопасное хранилище ----------
+// ---------- Хранилище ----------
 function storeGet(key) {
   try { return localStorage.getItem(key); } catch (_) { return null; }
 }
@@ -125,6 +131,51 @@ function glide(track, axis, distance, duration) {
   });
 }
 
+function heroHead(hero) {
+  return `
+    <div class="hero-head">
+      <div class="hero-emoji">${hero.emoji}</div>
+      <div class="hero-titles">
+        <div class="hero-name">${hero.name}</div>
+        <div class="hero-fun">«${hero.funName}»</div>
+      </div>
+      <div class="hero-role">${hero.role}</div>
+    </div>`;
+}
+
+function synergyBlock(e) {
+  return `
+    <div class="synergy tier-${e.tier}">
+      <div class="synergy-head">
+        <span class="synergy-label">⚗️ Синергия сборки</span>
+        <span class="synergy-percent">${e.percent}%</span>
+      </div>
+      <div class="meter"><div class="meter-fill" data-v="${(e.percent / 100).toFixed(2)}"></div></div>
+      <div class="verdict">${e.verdict}</div>
+      <div class="oracle-lines">
+        <p>${e.triple}</p>
+        <p>${e.styleLine}</p>
+        <p>${e.heroLine}</p>
+      </div>
+    </div>`;
+}
+
+function animateMeters() {
+  resultCard.querySelectorAll(".meter-fill").forEach((f) => {
+    const v = f.dataset.v || "0";
+    f.style.setProperty("--v", "0");
+    requestAnimationFrame(() => requestAnimationFrame(() => f.style.setProperty("--v", v)));
+  });
+}
+
+function revealResult() {
+  resultEl.classList.remove("hidden", "pop");
+  void resultEl.offsetWidth;
+  resultEl.classList.add("pop");
+  animateMeters();
+  resultEl.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 // ---------- Рулетка: пророчество ----------
 function fillRouletteIdle() {
   rouletteTrack.style.transition = "none";
@@ -152,44 +203,75 @@ async function spinRoulette() {
 }
 
 function makeProphecy(hero) {
-  return { hero, guide: randomItem(hero.guides), tips: randomItems(advices, randomInt(1, 2)) };
+  const guide = randomItem(hero.guides);
+  const item = randomItem(funnyItems);
+  const style = randomItem(playStyles);
+  const salt = 0;
+  return {
+    hero, guide, item, style, salt,
+    tips: randomItems(advices, randomInt(1, 2)),
+    extras: generateExtras({ hero, item, style, items: guide.items, salt }),
+  };
 }
 
 function renderProphecy(res) {
-  const { hero, guide, tips } = res;
+  const { hero, guide, tips, item, style, extras } = res;
   resultCard.innerHTML = `
-    <div class="hero-head">
-      <div class="hero-emoji">${hero.emoji}</div>
-      <div class="hero-titles">
-        <div class="hero-name">${hero.name}</div>
-        <div class="hero-fun">«${hero.funName}»</div>
-      </div>
-      <div class="hero-role">${hero.role}</div>
-    </div>
+    ${heroHead(hero)}
     <div class="guide-title">📜 ${guide.title}</div>
     <p class="mission">${guide.mission}</p>
+    <div class="build-title">🏷 «${extras.buildTitle}»</div>
     <div class="block">
-      <h3>🎒 Сборка</h3>
-      <ul class="items">${guide.items.map((i) => `<li>${i}</li>`).join("")}</ul>
+      <h3>🎒 Сборка · вердикт на каждый предмет</h3>
+      <div class="item-list">
+        ${extras.itemNotes.map((n) => `
+          <div class="item-row">
+            <div class="item-name">${n.name}</div>
+            <div class="item-note">${n.note}</div>
+            <div class="item-stat">${n.stat}</div>
+          </div>`).join("")}
+      </div>
     </div>
     <div class="block">
       <h3>🗺️ План игры</h3>
       <ol class="plan">${guide.plan.map((s) => `<li>${s}</li>`).join("")}</ol>
     </div>
     <blockquote class="phrase">💬 ${guide.phrase}</blockquote>
+    <div class="block">
+      <h3>🎰 Скрытые модификаторы пророчества</h3>
+      <div class="contract-reels">
+        <span class="chip chip-item">🎁 ${item}</span>
+        <span class="chip chip-style">🎭 ${style.name}</span>
+      </div>
+    </div>
+    ${synergyBlock(extras)}
     <div class="block tips">
       <h3>🔮 ${tips.length > 1 ? "Советы" : "Совет"} оракула</h3>
       <ul>${tips.map((t) => `<li>${t}</li>`).join("")}</ul>
     </div>`;
   acceptBtn.classList.add("hidden");
+  rerollBtn.classList.remove("hidden");
+  rerollBtn.disabled = false;
   lastShare = { kind: "prophecy", data: res };
   revealResult();
+}
+
+function rerollVerdict() {
+  if (spinning || !lastShare || lastShare.kind !== "prophecy") return;
+  const res = lastShare.data;
+  res.salt += 1;
+  res.extras = generateExtras({
+    hero: res.hero, item: res.item, style: res.style, items: res.guide.items, salt: res.salt,
+  });
+  haptic("selection");
+  renderProphecy(res);
+  setOracle("Оракул передумал. Бывает. 🎲");
 }
 
 // ---------- Слоты: контракт ----------
 function fillSlotsIdle() {
   const pools = [
-    heroes.map(heroSlotCell),
+    slotPool.map(heroSlotCell),
     funnyItems.map(textSlotCell),
     playStyles.map((s) => textSlotCell(s.name)),
   ];
@@ -201,12 +283,12 @@ function fillSlotsIdle() {
 }
 
 async function spinSlots() {
-  const hero = randomItem(heroes);
+  const hero = randomItem(slotPool);
   const item = randomItem(funnyItems);
   const style = randomItem(playStyles);
 
   const setups = [
-    { track: reelTracks[0], pool: heroes.map(heroSlotCell), winner: heroSlotCell(hero) },
+    { track: reelTracks[0], pool: slotPool.map(heroSlotCell), winner: heroSlotCell(hero) },
     { track: reelTracks[1], pool: funnyItems.map(textSlotCell), winner: textSlotCell(item) },
     { track: reelTracks[2], pool: playStyles.map((s) => textSlotCell(s.name)), winner: textSlotCell(style.name) },
   ];
@@ -242,9 +324,7 @@ function findCombo(hero, item, style) {
 function makeContract(hero, item, style) {
   return {
     serial: nextSerial(),
-    hero,
-    item,
-    style,
+    hero, item, style,
     title: randomItem(titles),
     oath: randomItem(oaths),
     ban: randomItem(bans),
@@ -252,31 +332,34 @@ function makeContract(hero, item, style) {
     reward: randomItem(rewards),
     tip: randomItem(advices),
     combo: findCombo(hero, item, style),
+    extras: generateExtras({ hero, item, style, items: [item], salt: 0 }),
   };
 }
 
 function renderContract(c) {
+  const note = c.extras.itemNotes[0];
   resultCard.innerHTML = `
     <div class="contract" id="contractCard">
       <div class="contract-top">
         <span class="contract-serial">Контракт №${c.serial}</span>
         <span class="contract-seal">заверено оракулом</span>
       </div>
-      <div class="hero-head">
-        <div class="hero-emoji">${c.hero.emoji}</div>
-        <div class="hero-titles">
-          <div class="hero-name">${c.hero.name}</div>
-          <div class="hero-fun">«${c.hero.funName}»</div>
-        </div>
-        <div class="hero-role">${c.hero.role}</div>
-      </div>
+      ${heroHead(c.hero)}
       <div class="contract-reels">
         <span class="chip chip-style">🎭 ${c.style.name}</span>
         <span class="chip chip-item">🎁 ${c.item}</span>
         <span class="chip chip-title">🏷 ${c.title}</span>
       </div>
+      <div class="build-title">⚗️ «${c.extras.buildTitle}»</div>
       <div class="style-desc">${c.style.desc}</div>
+      ${note ? `
+        <div class="item-row" style="margin-top:12px">
+          <div class="item-name">${note.name}</div>
+          <div class="item-note">${note.note}</div>
+          <div class="item-stat">${note.stat}</div>
+        </div>` : ""}
       ${c.combo ? `<div class="combo">⚡ Комбо: ${c.combo}</div>` : ""}
+      ${synergyBlock(c.extras)}
       <div class="contract-grid">
         <div class="clause"><h4>📜 Обет</h4><p>${c.oath}</p></div>
         <div class="clause"><h4>🚫 Запрет</h4><p>${c.ban}</p></div>
@@ -289,18 +372,12 @@ function renderContract(c) {
   acceptBtn.classList.remove("hidden");
   acceptBtn.disabled = false;
   acceptBtn.textContent = "🤝 Принять контракт";
+  rerollBtn.classList.add("hidden");
   lastShare = { kind: "contract", data: c };
   revealResult();
 }
 
-function revealResult() {
-  resultEl.classList.remove("hidden", "pop");
-  void resultEl.offsetWidth;
-  resultEl.classList.add("pop");
-  resultEl.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-// ---------- Принятие / завершение контракта ----------
+// ---------- Контракт: принятие / завершение ----------
 function refreshBanner() {
   const raw = storeGet("oracle_contract");
   if (!raw) { bannerEl.classList.add("hidden"); return; }
@@ -315,8 +392,7 @@ function refreshBanner() {
 
 function acceptContract() {
   if (!lastShare || lastShare.kind !== "contract") return;
-  const c = lastShare.data;
-  storeSet("oracle_contract", JSON.stringify(c));
+  storeSet("oracle_contract", JSON.stringify(lastShare.data));
   const card = $("contractCard");
   if (card) card.classList.add("accepted");
   acceptBtn.disabled = true;
@@ -346,6 +422,7 @@ async function spin() {
   spinBtn.disabled = true;
   againBtn.disabled = true;
   acceptBtn.disabled = true;
+  rerollBtn.disabled = true;
   spinBtn.textContent = "🔮 Оракул думает…";
   resultEl.classList.add("hidden");
   haptic("tap");
@@ -358,7 +435,7 @@ async function spin() {
       const res = makeProphecy(hero);
       await wait(450);
       renderProphecy(res);
-      setOracle("Судьба сказала своё слово. Читай и удивляйся. 📜");
+      setOracle("Судьба сказала своё слово. Синергия посчитана. 📜");
     } else {
       const { hero, item, style } = await spinSlots();
       haptic("warning");
@@ -372,6 +449,7 @@ async function spin() {
     spinning = false;
     spinBtn.disabled = false;
     againBtn.disabled = false;
+    rerollBtn.disabled = false;
     spinBtn.textContent = "🎲 Крутить";
   }
 }
@@ -385,6 +463,7 @@ function setMode(next) {
   slotsEl.classList.toggle("hidden", mode !== "slots");
   resultEl.classList.add("hidden");
   acceptBtn.classList.add("hidden");
+  rerollBtn.classList.add("hidden");
   setOracle(mode === "roulette"
     ? "Лента судьбы заряжена. Жми «Крутить»."
     : "Барабаны заряжены абсурдом. Жми «Крутить».");
@@ -394,12 +473,15 @@ function setMode(next) {
 // ---------- Поделиться ----------
 function buildShareText(share) {
   if (share.kind === "prophecy") {
-    const { hero, guide, tips } = share.data;
+    const { hero, guide, tips, item, style, extras } = share.data;
     return [
       "🔮 Дота-Оракул выдал мне пророчество:",
       `${hero.emoji} ${hero.name} — «${hero.funName}» (${hero.role})`,
       `📜 Гайд: ${guide.title}`,
-      `🎒 Сборка: ${guide.items.join(", ")}`,
+      `🏷 Сборка: «${extras.buildTitle}»`,
+      `🎁 Модификатор: ${item}`,
+      `🎭 Стиль: ${style.name}`,
+      `⚗️ Синергия: ${extras.percent}% — ${extras.verdict}`,
       `💬 ${guide.phrase}`,
       `✨ Совет: ${tips[0]}`,
     ].join("\n");
@@ -410,6 +492,7 @@ function buildShareText(share) {
     `${c.hero.emoji} ${c.hero.name} — «${c.hero.funName}»`,
     `🎭 Стиль: ${c.style.name}`,
     `🏷 Титул: ${c.title}`,
+    `⚗️ Сборка «${c.extras.buildTitle}» — синергия ${c.extras.percent}%`,
     `📜 Обет: ${c.oath}`,
     `🚫 Запрет: ${c.ban}`,
     `🏆 Победа засчитывается, если ${c.win}`,
@@ -481,6 +564,7 @@ function init() {
   againBtn.addEventListener("click", spin);
   shareBtn.addEventListener("click", shareResult);
   acceptBtn.addEventListener("click", acceptContract);
+  rerollBtn.addEventListener("click", rerollVerdict);
   bannerDone.addEventListener("click", finishContract);
   modeButtons.forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
 }
