@@ -4,9 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#070a14" />
-  <title>Дота-Оракул 🔮 — пророчества и контракты</title>
+  <title>Дота-Оракул 🔮 — пророчества, контракты и билеты</title>
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="combo.css" />
+  <link rel="stylesheet" href="exile.css" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
@@ -15,7 +16,7 @@
     <header class="header">
       <div class="logo">🔮</div>
       <h1>Дота-Оракул</h1>
-      <p class="subtitle">Рулетка выдаёт судьбу. Слоты выдают контракт. Оракул считает синергию и не несёт ответственности.</p>
+      <p class="subtitle">Рулетка выдаёт судьбу. Слоты выдают контракт. Три вопроса выдают билет в одну сторону.</p>
     </header>
 
     <div class="mode-switch">
@@ -50,6 +51,10 @@
           <div class="reel-window"><div class="reel-track" id="reelStyles"></div></div>
         </div>
       </div>
+
+      <p class="slots-hint hidden" id="slotsHint">
+        <b>❓❓❓</b> — три вопроса подряд, и оракул выпишет билет в другую игру.
+      </p>
     </section>
 
     <button class="spin-btn" id="spinBtn">🎲 Крутить</button>
@@ -63,6 +68,7 @@
       <div class="result-card" id="resultCard"></div>
       <div class="result-actions">
         <button class="btn btn-accept hidden" id="acceptBtn">🤝 Принять контракт</button>
+        <button class="btn btn-take hidden" id="takeBtn">🎫 Забрать билет</button>
         <button class="btn btn-reroll hidden" id="rerollBtn">🎲 Другой вердикт</button>
         <button class="btn btn-ghost" id="againBtn">🔁 Крутить снова</button>
         <button class="btn btn-share" id="shareBtn">📣 Поделиться</button>
@@ -70,9 +76,9 @@
     </section>
 
     <footer class="disclaimer">
-      Это шуточное фан-приложение. Не связано с Valve и Dota 2.
-      Все гайды, контракты и синергии — абсурд и шутка: играй честно, уважай команду и получай удовольствие.
-      Dota 2 — товарный знак Valve Corporation.
+      Это шуточное фан-приложение. Не связано с Valve, Dota 2, Riot Games и League of Legends.
+      Все гайды, контракты и билеты — абсурд и шутка: играй честно, уважай команду и получай удовольствие.
+      Все товарные знаки принадлежат их владельцам.
     </footer>
 
   </main>
