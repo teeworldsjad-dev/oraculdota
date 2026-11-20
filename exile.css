@@ -1,0 +1,365 @@
+/* ============================================================
+   Билет в одну сторону. Холодная палитра чужой игры
+   против тёплого янтаря оракула. Подключается после combo.css.
+   ============================================================ */
+
+:root {
+  --ex-blue: #3fa7ff;
+  --ex-teal: #2ee6c5;
+  --ex-gold: #c8aa6e;
+  --ex-ink: #060b16;
+  --ex-red: #ff5f6d;
+}
+
+/* ---------- Подсказка под барабанами ---------- */
+
+.slots-hint {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.5;
+  color: var(--faint);
+  letter-spacing: 0.01em;
+}
+
+.slots-hint b { color: var(--ex-red); font-weight: 850; }
+
+/* ---------- Вопрос в барабане ---------- */
+
+.s-question { gap: 0; }
+
+.q-mark {
+  font-size: 26px;
+  line-height: 1;
+  filter: drop-shadow(0 0 10px rgba(255, 95, 109, 0.6));
+}
+
+.s-cell.s-question.winner {
+  background: radial-gradient(70% 70% at 50% 50%, rgba(255, 95, 109, 0.3), transparent 78%);
+  animation: qHit 0.7s ease-in-out infinite alternate;
+}
+
+.s-cell.s-question.winner .q-mark {
+  filter: drop-shadow(0 0 16px rgba(255, 95, 109, 0.95));
+}
+
+.reel-window.exile-hit {
+  border-color: rgba(255, 95, 109, 0.65);
+  box-shadow: inset 0 2px 14px rgba(0, 0, 0, 0.55), 0 0 26px -6px rgba(255, 95, 109, 0.8);
+  transition: border-color 0.3s var(--ease), box-shadow 0.3s var(--ease);
+}
+
+@keyframes qHit {
+  from { transform: scale(1); }
+  to   { transform: scale(1.12); }
+}
+
+/* Мир ненадолго холодеет */
+body::before { transition: filter 1.1s ease; }
+body.exiled::before { filter: blur(46px) hue-rotate(-70deg) saturate(1.5); }
+
+/* ---------- Билет ---------- */
+
+.ticket {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  border-radius: var(--r-l);
+  background:
+    radial-gradient(90% 60% at 100% 0%, rgba(63, 167, 255, 0.18), transparent 62%),
+    linear-gradient(160deg, #0d1626f2, #070d1af2);
+  border: 1px solid rgba(63, 167, 255, 0.4);
+  backdrop-filter: blur(26px) saturate(170%);
+  -webkit-backdrop-filter: blur(26px) saturate(170%);
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.9), 0 0 40px -18px rgba(63, 167, 255, 0.8),
+              inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.ticket::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.12) 50%, transparent 60%);
+  transform: translateX(-130%);
+  animation: sheen 7s ease-in-out infinite;
+}
+
+.ticket > * { position: relative; z-index: 1; }
+
+.ticket-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  background: linear-gradient(120deg, rgba(63, 167, 255, 0.28), rgba(46, 230, 197, 0.14));
+  border-bottom: 1px solid rgba(63, 167, 255, 0.35);
+}
+
+.ticket-title {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #d8ecff;
+}
+
+.ticket-serial {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--ex-teal);
+}
+
+.ticket-body { padding: 18px; }
+
+/* Маршрут */
+.ticket-route {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.route-side { min-width: 0; flex: 1; }
+.route-side.to { text-align: right; }
+
+.route-code {
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: #eaf4ff;
+}
+.route-side.to .route-code { color: var(--ex-teal); }
+
+.route-full {
+  margin-top: 5px;
+  font-size: 10.5px;
+  font-weight: 650;
+  line-height: 1.4;
+  color: var(--faint);
+}
+
+.route-plane {
+  flex: 0 0 auto;
+  font-size: 20px;
+  color: var(--ex-gold);
+  animation: planeDrift 3.4s ease-in-out infinite;
+}
+
+@keyframes planeDrift {
+  0%, 100% { transform: translateX(-3px); opacity: 0.75; }
+  50%      { transform: translateX(3px); opacity: 1; }
+}
+
+.ticket-line {
+  margin: 14px 0 0;
+  height: 1px;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,0.3) 0 6px, transparent 6px 12px);
+}
+
+/* Поля билета */
+.ticket-fields {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.tf {
+  padding: 9px 11px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.tf-label {
+  font-size: 8.5px;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.tf-value {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #eaf4ff;
+  overflow-wrap: break-word;
+}
+
+.tf-value.warn { color: var(--ex-red); }
+.tf-value.good { color: var(--ex-teal); }
+
+/* Печальное описание */
+.ticket-sad {
+  margin-top: 16px;
+  padding: 15px 16px;
+  border-radius: var(--r-m);
+  border-left: 2px solid var(--ex-blue);
+  background: linear-gradient(120deg, rgba(63, 167, 255, 0.14), rgba(255, 255, 255, 0.03));
+  font-size: 13px;
+  line-height: 1.75;
+  color: #cfe0f5;
+}
+
+.ticket-section-label {
+  margin: 16px 0 8px;
+  font-size: 9.5px;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.ticket-baggage { list-style: none; display: flex; flex-wrap: wrap; gap: 7px; }
+
+.ticket-baggage li {
+  padding: 6px 11px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 650;
+  color: #bcd8f5;
+  background: rgba(63, 167, 255, 0.12);
+  border: 1px solid rgba(63, 167, 255, 0.3);
+}
+
+.ticket-swap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.swap-card {
+  padding: 12px 13px;
+  border-radius: var(--r-m);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.swap-card.leave { border-color: rgba(255, 95, 109, 0.32); }
+.swap-card.find  { border-color: rgba(46, 230, 197, 0.32); }
+
+.swap-label {
+  margin-bottom: 6px;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+.swap-card.leave .swap-label { color: #ff9ba3; }
+.swap-card.find  .swap-label { color: var(--ex-teal); }
+
+.swap-text { font-size: 12.5px; line-height: 1.55; color: #cfe0f5; }
+
+.ticket-farewell {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: var(--r-m);
+  text-align: center;
+  font-size: 12.5px;
+  font-style: italic;
+  line-height: 1.6;
+  color: #9fb4cf;
+  background: rgba(6, 11, 22, 0.5);
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+}
+
+/* Отрывной корешок */
+.ticket-stub {
+  position: relative;
+  margin-top: 4px;
+  padding: 16px 18px 18px;
+  border-top: 2px dashed rgba(255, 255, 255, 0.22);
+  background: rgba(6, 11, 22, 0.45);
+}
+
+.ticket-stub::before,
+.ticket-stub::after {
+  content: "";
+  position: absolute;
+  top: -11px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid rgba(63, 167, 255, 0.3);
+}
+.ticket-stub::before { left: -11px; }
+.ticket-stub::after  { right: -11px; }
+
+.barcode {
+  height: 44px;
+  border-radius: 8px;
+  background:
+    repeating-linear-gradient(90deg,
+      #dce9ff 0 2px, transparent 2px 4px,
+      #dce9ff 4px 5px, transparent 5px 9px,
+      #dce9ff 9px 12px, transparent 12px 14px);
+  opacity: 0.8;
+}
+
+.barcode-text {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  color: var(--faint);
+}
+
+.ticket-stamp {
+  position: absolute;
+  right: 18px;
+  top: 74px;
+  z-index: 3;
+  padding: 7px 15px;
+  border: 2px solid var(--ex-red);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ex-red);
+  background: rgba(6, 11, 22, 0.8);
+  opacity: 0;
+  transform: rotate(-11deg) scale(1.5);
+  transition: opacity 0.35s var(--spring), transform 0.35s var(--spring);
+  pointer-events: none;
+}
+
+.ticket.taken .ticket-stamp { opacity: 0.95; transform: rotate(-11deg) scale(1); }
+.ticket.taken { border-color: rgba(255, 95, 109, 0.6); }
+
+/* ---------- Кнопка ---------- */
+
+.btn-take {
+  flex: 1 1 100%;
+  color: #04121f;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: linear-gradient(140deg, var(--ex-blue), var(--ex-teal));
+  box-shadow: 0 12px 30px -16px rgba(63, 167, 255, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+/* ---------- Адаптация ---------- */
+
+@media (max-width: 420px) {
+  .ticket-body { padding: 15px; }
+  .ticket-head { padding: 12px 15px; }
+  .ticket-stub { padding: 14px 15px 16px; }
+  .route-code { font-size: 28px; }
+  .ticket-fields { grid-template-columns: repeat(2, 1fr); }
+  .ticket-swap { grid-template-columns: 1fr; }
+  .ticket-sad { font-size: 12.5px; padding: 13px 14px; }
+  .ticket-stamp { right: 14px; top: 66px; font-size: 12px; }
+}
+
+@media (max-width: 340px) {
+  .ticket-fields { grid-template-columns: 1fr; }
+}
