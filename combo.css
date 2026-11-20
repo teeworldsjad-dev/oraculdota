@@ -1,5 +1,5 @@
 /* ============================================================
-   Расширение liquid-glass темы: сборка, синергия, вердикты.
+   Расширение liquid-glass темы: сборка, синергия, приговоры, чат.
    Подключается после style.css и использует его переменные.
    ============================================================ */
 
@@ -21,13 +21,25 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 10px 26px -16px rgba(255, 209, 102, 0.8);
 }
 
-/* ---------- Список предметов с комментарием на каждый ---------- */
-
-.item-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.player-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 8px 0 0 6px;
+  padding: 8px 13px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 750;
+  color: #ffc2d9;
+  background: rgba(255, 122, 182, 0.16);
+  border: 1px solid rgba(255, 122, 182, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
+
+/* ---------- Предметы ---------- */
+
+.item-list { display: flex; flex-direction: column; gap: 8px; }
 
 .item-row {
   position: relative;
@@ -55,19 +67,8 @@
   .item-row:hover { transform: translateX(3px); border-color: rgba(255, 255, 255, 0.3); }
 }
 
-.item-name {
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  color: var(--text);
-}
-
-.item-note {
-  margin-top: 5px;
-  font-size: 12.5px;
-  line-height: 1.6;
-  color: var(--text-2);
-}
+.item-name { font-size: 13px; font-weight: 800; letter-spacing: -0.01em; color: var(--text); }
+.item-note { margin-top: 5px; font-size: 12.5px; line-height: 1.6; color: var(--text-2); }
 
 .item-stat {
   display: inline-block;
@@ -76,13 +77,12 @@
   border-radius: 999px;
   font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.01em;
   color: #b9f3ff;
   background: rgba(110, 231, 255, 0.12);
   border: 1px solid rgba(110, 231, 255, 0.3);
 }
 
-/* ---------- Блок синергии ---------- */
+/* ---------- Синергия ---------- */
 
 .synergy {
   position: relative;
@@ -111,9 +111,10 @@
 
 .synergy-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
+  flex-wrap: wrap;
   margin-bottom: 10px;
 }
 
@@ -125,11 +126,19 @@
   color: var(--faint);
 }
 
-.synergy-percent {
-  font-size: 22px;
-  font-weight: 900;
-  letter-spacing: -0.03em;
-  line-height: 1;
+.synergy-numbers { display: flex; align-items: center; gap: 9px; }
+
+.synergy-percent { font-size: 22px; font-weight: 900; letter-spacing: -0.03em; line-height: 1; }
+
+.mmr-chip {
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--text-2);
+  background: rgba(8, 11, 22, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .meter {
@@ -151,12 +160,7 @@
   will-change: transform;
 }
 
-.verdict {
-  margin-top: 12px;
-  font-size: 13.5px;
-  font-weight: 750;
-  line-height: 1.5;
-}
+.verdict { margin-top: 12px; font-size: 13.5px; font-weight: 750; line-height: 1.5; }
 
 .oracle-lines { margin-top: 10px; }
 
@@ -178,26 +182,155 @@
   color: var(--violet);
 }
 
-/* Тиры синергии */
 .synergy.tier-bad  { border-color: rgba(255, 107, 107, 0.42); }
 .synergy.tier-bad  .synergy-percent,
 .synergy.tier-bad  .verdict { color: #ff9b9b; }
 .synergy.tier-bad  .meter-fill { background: linear-gradient(90deg, #ff6b6b, #ff7ab6); }
+.synergy.tier-bad  .mmr-chip { color: #ff9b9b; border-color: rgba(255, 107, 107, 0.45); }
 
 .synergy.tier-mid  { border-color: rgba(255, 209, 102, 0.4); }
 .synergy.tier-mid  .synergy-percent,
 .synergy.tier-mid  .verdict { color: var(--amber); }
 .synergy.tier-mid  .meter-fill { background: linear-gradient(90deg, #ffd166, #ff9f6b); }
+.synergy.tier-mid  .mmr-chip { color: var(--amber); border-color: rgba(255, 209, 102, 0.45); }
 
 .synergy.tier-good { border-color: rgba(110, 231, 255, 0.42); }
 .synergy.tier-good .synergy-percent,
 .synergy.tier-good .verdict { color: var(--cyan); }
 .synergy.tier-good .meter-fill { background: linear-gradient(90deg, #5aa9ff, #6ee7ff); }
+.synergy.tier-good .mmr-chip { color: var(--cyan); border-color: rgba(110, 231, 255, 0.45); }
 
 .synergy.tier-epic { border-color: rgba(155, 140, 255, 0.55); box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), var(--shadow-glow-violet); }
 .synergy.tier-epic .synergy-percent,
 .synergy.tier-epic .verdict { color: #cdc2ff; }
 .synergy.tier-epic .meter-fill { background: linear-gradient(90deg, #9b8cff, #ff7ab6 55%, #ffd166); }
+.synergy.tier-epic .mmr-chip { color: #cdc2ff; border-color: rgba(155, 140, 255, 0.5); }
+
+/* ---------- Приговор и отмазка ---------- */
+
+.roast-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.roast-card {
+  position: relative;
+  overflow: hidden;
+  padding: 13px 14px;
+  border-radius: var(--r-m);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.roast-sentence { border-color: rgba(255, 107, 107, 0.38); background: linear-gradient(150deg, rgba(255, 107, 107, 0.14), rgba(255, 255, 255, 0.04)); }
+.roast-excuse   { border-color: rgba(155, 140, 255, 0.38); background: linear-gradient(150deg, rgba(155, 140, 255, 0.14), rgba(255, 255, 255, 0.04)); }
+
+.roast-label {
+  margin-bottom: 7px;
+  font-size: 9.5px;
+  font-weight: 850;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.roast-sentence .roast-label { color: #ff9b9b; }
+.roast-excuse .roast-label { color: #cdc2ff; }
+
+.roast-text { font-size: 12.5px; line-height: 1.6; color: var(--text-2); }
+.roast-excuse .roast-text { font-style: italic; }
+
+/* ---------- Хроника ---------- */
+
+.timeline { display: flex; flex-direction: column; gap: 8px; }
+
+.tl-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 10px 12px;
+  border-radius: var(--r-s);
+  background: rgba(8, 11, 22, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.tl-min {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 7px;
+  font-size: 10.5px;
+  font-weight: 850;
+  letter-spacing: 0.03em;
+  color: var(--amber);
+  background: rgba(255, 209, 102, 0.14);
+  border: 1px solid rgba(255, 209, 102, 0.32);
+}
+
+.tl-text { font-size: 12.5px; line-height: 1.6; color: var(--text-2); }
+
+/* ---------- Чат ---------- */
+
+.chat { display: flex; flex-direction: column; gap: 9px; }
+
+.chat-bubble {
+  position: relative;
+  max-width: 88%;
+  padding: 10px 13px;
+  border-radius: 16px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.chat-who {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 9.5px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.chat-team {
+  align-self: flex-start;
+  border-bottom-left-radius: 5px;
+  color: #d7dcf5;
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.chat-team .chat-who { color: var(--muted); }
+
+.chat-enemy {
+  align-self: flex-end;
+  border-bottom-right-radius: 5px;
+  text-align: right;
+  color: #ffc9c9;
+  background: linear-gradient(150deg, rgba(255, 107, 107, 0.2), rgba(255, 122, 182, 0.08));
+  border: 1px solid rgba(255, 107, 107, 0.38);
+}
+.chat-enemy .chat-who { color: #ff9b9b; }
+
+/* ---------- Эпитафия ---------- */
+
+.epitaph {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: var(--r-m);
+  text-align: center;
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.6;
+  color: var(--muted);
+  background: rgba(8, 11, 22, 0.45);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+}
 
 /* ---------- Кнопка перегенерации ---------- */
 
@@ -216,4 +349,7 @@
   .synergy-percent { font-size: 20px; }
   .item-row { padding: 11px 12px; }
   .build-title { font-size: 11.5px; padding: 8px 12px; }
+  .player-title { margin-left: 0; font-size: 11px; }
+  .roast-grid { grid-template-columns: 1fr; }
+  .chat-bubble { max-width: 94%; }
 }

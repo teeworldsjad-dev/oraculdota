@@ -62,29 +62,23 @@ const bannerDone = $("bannerDone");
 const modeButtons = document.querySelectorAll(".mode-btn");
 const reelTracks = [$("reelHeroes"), $("reelItems"), $("reelStyles")];
 
-// ---------- Пулы героев ----------
+// ---------- Пулы ----------
 const slotHeroes = heroes.filter((h) => !h.prophecyOnly);
 const slotPool = slotHeroes.length > 0 ? slotHeroes : heroes;
 
 // ---------- Состояние ----------
 let mode = "roulette";
 let spinning = false;
-let lastShare = null; // { kind: "prophecy" | "contract", data }
+let lastShare = null;
 let oracleTimer = null;
 let toastTimer = null;
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ---------- Хранилище ----------
-function storeGet(key) {
-  try { return localStorage.getItem(key); } catch (_) { return null; }
-}
-function storeSet(key, value) {
-  try { localStorage.setItem(key, value); } catch (_) {}
-}
-function storeDel(key) {
-  try { localStorage.removeItem(key); } catch (_) {}
-}
+function storeGet(key) { try { return localStorage.getItem(key); } catch (_) { return null; } }
+function storeSet(key, value) { try { localStorage.setItem(key, value); } catch (_) {} }
+function storeDel(key) { try { localStorage.removeItem(key); } catch (_) {} }
 function nextSerial() {
   const n = (parseInt(storeGet("oracle_serial") || "0", 10) || 0) + 1;
   storeSet("oracle_serial", String(n));
@@ -148,7 +142,10 @@ function synergyBlock(e) {
     <div class="synergy tier-${e.tier}">
       <div class="synergy-head">
         <span class="synergy-label">⚗️ Синергия сборки</span>
-        <span class="synergy-percent">${e.percent}%</span>
+        <span class="synergy-numbers">
+          <span class="mmr-chip">MMR ${e.mmr}</span>
+          <span class="synergy-percent">${e.percent}%</span>
+        </span>
       </div>
       <div class="meter"><div class="meter-fill" data-v="${(e.percent / 100).toFixed(2)}"></div></div>
       <div class="verdict">${e.verdict}</div>
@@ -158,6 +155,35 @@ function synergyBlock(e) {
         <p>${e.heroLine}</p>
       </div>
     </div>`;
+}
+
+function roastBlocks(e) {
+  return `
+    <div class="roast-grid">
+      <div class="roast-card roast-sentence">
+        <div class="roast-label">⚖️ Приговор оракула</div>
+        <div class="roast-text">${e.sentence}</div>
+      </div>
+      <div class="roast-card roast-excuse">
+        <div class="roast-label">🗣 Готовая отмазка</div>
+        <div class="roast-text">${e.excuse}</div>
+      </div>
+    </div>
+    <div class="block">
+      <h3>⏱ Хроника катки</h3>
+      <div class="timeline">
+        ${e.timeline.map((t) => `
+          <div class="tl-row"><span class="tl-min">${t.min}</span><span class="tl-text">${t.text}</span></div>`).join("")}
+      </div>
+    </div>
+    <div class="block">
+      <h3>💬 Чат</h3>
+      <div class="chat">
+        <div class="chat-bubble chat-team"><span class="chat-who">Тиммейт</span>${e.teamQuote}</div>
+        <div class="chat-bubble chat-enemy"><span class="chat-who">Враг</span>${e.enemyQuote}</div>
+      </div>
+    </div>
+    <div class="epitaph">🪦 ${e.epitaph}</div>`;
 }
 
 function animateMeters() {
@@ -176,7 +202,7 @@ function revealResult() {
   resultEl.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-// ---------- Рулетка: пророчество ----------
+// ---------- Рулетка ----------
 function fillRouletteIdle() {
   rouletteTrack.style.transition = "none";
   rouletteTrack.style.transform = "translateX(0)";
@@ -220,7 +246,10 @@ function renderProphecy(res) {
     ${heroHead(hero)}
     <div class="guide-title">📜 ${guide.title}</div>
     <p class="mission">${guide.mission}</p>
-    <div class="build-title">🏷 «${extras.buildTitle}»</div>
+    <div>
+      <span class="build-title">🏷 «${extras.buildTitle}»</span>
+      <span class="player-title">🎖 ${extras.playerTitle}</span>
+    </div>
     <div class="block">
       <h3>🎒 Сборка · вердикт на каждый предмет</h3>
       <div class="item-list">
@@ -245,6 +274,7 @@ function renderProphecy(res) {
       </div>
     </div>
     ${synergyBlock(extras)}
+    ${roastBlocks(extras)}
     <div class="block tips">
       <h3>🔮 ${tips.length > 1 ? "Советы" : "Совет"} оракула</h3>
       <ul>${tips.map((t) => `<li>${t}</li>`).join("")}</ul>
@@ -265,10 +295,10 @@ function rerollVerdict() {
   });
   haptic("selection");
   renderProphecy(res);
-  setOracle("Оракул передумал. Бывает. 🎲");
+  setOracle("Оракул передумал. Стало хуже. 🎲");
 }
 
-// ---------- Слоты: контракт ----------
+// ---------- Слоты ----------
 function fillSlotsIdle() {
   const pools = [
     slotPool.map(heroSlotCell),
@@ -366,6 +396,7 @@ function renderContract(c) {
         <div class="clause"><h4>🏆 Победа засчитывается, если</h4><p>${c.win}</p></div>
         <div class="clause"><h4>🎁 Награда</h4><p>${c.reward}</p></div>
       </div>
+      ${roastBlocks(c.extras)}
       <div class="contract-ps">🔮 P.S. ${c.tip}</div>
       <div class="stamp">Принято</div>
     </div>`;
@@ -377,7 +408,7 @@ function renderContract(c) {
   revealResult();
 }
 
-// ---------- Контракт: принятие / завершение ----------
+// ---------- Контракт ----------
 function refreshBanner() {
   const raw = storeGet("oracle_contract");
   if (!raw) { bannerEl.classList.add("hidden"); return; }
@@ -415,7 +446,7 @@ function finishContract() {
   showToast("📜 Контракт закрыт. Оракул делает вид, что гордится.");
 }
 
-// ---------- Главный спин ----------
+// ---------- Спин ----------
 async function spin() {
   if (spinning || heroes.length === 0) return;
   spinning = true;
@@ -435,14 +466,14 @@ async function spin() {
       const res = makeProphecy(hero);
       await wait(450);
       renderProphecy(res);
-      setOracle("Судьба сказала своё слово. Синергия посчитана. 📜");
+      setOracle("Судьба сказала своё слово. Приговор оглашён. 📜");
     } else {
       const { hero, item, style } = await spinSlots();
       haptic("warning");
       const contract = makeContract(hero, item, style);
       await wait(450);
       renderContract(contract);
-      setOracle("Контракт составлен. Подписывай кровью. Или кнопкой. 🎰");
+      setOracle("Контракт составлен. Смягчающих обстоятельств нет. 🎰");
     }
   } finally {
     stopOracleChatter();
@@ -466,7 +497,7 @@ function setMode(next) {
   rerollBtn.classList.add("hidden");
   setOracle(mode === "roulette"
     ? "Лента судьбы заряжена. Жми «Крутить»."
-    : "Барабаны заряжены абсурдом. Жми «Крутить».");
+    : "Барабаны заряжены злостью. Жми «Крутить».");
   haptic("selection");
 }
 
@@ -479,9 +510,11 @@ function buildShareText(share) {
       `${hero.emoji} ${hero.name} — «${hero.funName}» (${hero.role})`,
       `📜 Гайд: ${guide.title}`,
       `🏷 Сборка: «${extras.buildTitle}»`,
+      `🎖 Титул: ${extras.playerTitle}`,
       `🎁 Модификатор: ${item}`,
       `🎭 Стиль: ${style.name}`,
-      `⚗️ Синергия: ${extras.percent}% — ${extras.verdict}`,
+      `⚗️ Синергия: ${extras.percent}% (MMR ${extras.mmr}) — ${extras.verdict}`,
+      `⚖️ Приговор: ${extras.sentence}`,
       `💬 ${guide.phrase}`,
       `✨ Совет: ${tips[0]}`,
     ].join("\n");
@@ -492,7 +525,8 @@ function buildShareText(share) {
     `${c.hero.emoji} ${c.hero.name} — «${c.hero.funName}»`,
     `🎭 Стиль: ${c.style.name}`,
     `🏷 Титул: ${c.title}`,
-    `⚗️ Сборка «${c.extras.buildTitle}» — синергия ${c.extras.percent}%`,
+    `⚗️ Сборка «${c.extras.buildTitle}» — синергия ${c.extras.percent}% (MMR ${c.extras.mmr})`,
+    `⚖️ Приговор: ${c.extras.sentence}`,
     `📜 Обет: ${c.oath}`,
     `🚫 Запрет: ${c.ban}`,
     `🏆 Победа засчитывается, если ${c.win}`,
@@ -525,7 +559,7 @@ async function copyText(text) {
 
 async function shareResult() {
   if (!lastShare) {
-    showToast("Сначала крути — потом делись судьбой 🔮");
+    showToast("Сначала крути — потом делись позором 🔮");
     return;
   }
   haptic("tap");
@@ -544,7 +578,7 @@ async function shareResult() {
 
   const copied = await copyText(pageUrl ? text + "\n\n" + pageUrl : text);
   showToast(copied
-    ? "📋 Скопировано! Кидай друзьям в чат."
+    ? "📋 Скопировано. Кидай в чат, пусть тоже страдают."
     : "😅 Не получилось скопировать. Попробуй ещё раз.");
 }
 
