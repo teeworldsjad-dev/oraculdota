@@ -15,6 +15,7 @@ import {
   randomInt,
 } from "./random.js";
 import { generateExtras } from "./generator.js";
+import { makeTicket, questionCell, EXILE_CHANCE } from "./exile.js";
 
 // ---------- Telegram ----------
 const tg = window.Telegram?.WebApp;
@@ -35,6 +36,7 @@ function haptic(kind) {
   try {
     if (kind === "success") tg.HapticFeedback.notificationOccurred("success");
     else if (kind === "warning") tg.HapticFeedback.notificationOccurred("warning");
+    else if (kind === "error") tg.HapticFeedback.notificationOccurred("error");
     else if (kind === "selection") tg.HapticFeedback.selectionChanged();
     else tg.HapticFeedback.impactOccurred("light");
   } catch (_) {}
@@ -47,10 +49,12 @@ const stageEl = $("stage");
 const rouletteEl = $("roulette");
 const rouletteTrack = $("rouletteTrack");
 const slotsEl = $("slots");
+const slotsHint = $("slotsHint");
 const spinBtn = $("spinBtn");
 const againBtn = $("againBtn");
 const shareBtn = $("shareBtn");
 const acceptBtn = $("acceptBtn");
+const takeBtn = $("takeBtn");
 const rerollBtn = $("rerollBtn");
 const resultEl = $("result");
 const resultCard = $("resultCard");
@@ -72,6 +76,7 @@ let spinning = false;
 let lastShare = null;
 let oracleTimer = null;
 let toastTimer = null;
+let exileTimer = null;
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -90,7 +95,7 @@ function showToast(text) {
   toastEl.textContent = text;
   toastEl.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2600);
+  toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2800);
 }
 function setOracle(text) { oracleEl.textContent = text; }
 function startOracleChatter() {
@@ -194,6 +199,12 @@ function animateMeters() {
   });
 }
 
+function hideActionButtons() {
+  acceptBtn.classList.add("hidden");
+  takeBtn.classList.add("hidden");
+  rerollBtn.classList.add("hidden");
+}
+
 function revealResult() {
   resultEl.classList.remove("hidden", "pop");
   void resultEl.offsetWidth;
@@ -279,7 +290,7 @@ function renderProphecy(res) {
       <h3>🔮 ${tips.length > 1 ? "Советы" : "Совет"} оракула</h3>
       <ul>${tips.map((t) => `<li>${t}</li>`).join("")}</ul>
     </div>`;
-  acceptBtn.classList.add("hidden");
+  hideActionButtons();
   rerollBtn.classList.remove("hidden");
   rerollBtn.disabled = false;
   lastShare = { kind: "prophecy", data: res };
@@ -306,23 +317,50 @@ function fillSlotsIdle() {
     playStyles.map((s) => textSlotCell(s.name)),
   ];
   reelTracks.forEach((track, i) => {
+    track.parentElement.classList.remove("exile-hit");
     track.style.transition = "none";
     track.style.transform = "translateY(0)";
     track.innerHTML = pools[i].join("");
   });
 }
 
+// Вопросы мелькают в ленте, но остановиться могут только все три сразу.
+function teasePool(pool) {
+  const p = [...pool];
+  p.splice(4, 0, questionCell());
+  p.splice(13, 0, questionCell());
+  p.splice(21, 0, questionCell());
+  return p;
+}
+
 async function spinSlots() {
+  const exile = Math.random() < EXILE_CHANCE;
   const hero = randomItem(slotPool);
   const item = randomItem(funnyItems);
   const style = randomItem(playStyles);
 
+  reelTracks.forEach((t) => t.parentElement.classList.remove("exile-hit"));
+
   const setups = [
-    { track: reelTracks[0], pool: slotPool.map(heroSlotCell), winner: heroSlotCell(hero) },
-    { track: reelTracks[1], pool: funnyItems.map(textSlotCell), winner: textSlotCell(item) },
-    { track: reelTracks[2], pool: playStyles.map((s) => textSlotCell(s.name)), winner: textSlotCell(style.name) },
+    {
+      track: reelTracks[0],
+      pool: teasePool(slotPool.map(heroSlotCell)),
+      winner: exile ? questionCell() : heroSlotCell(hero),
+    },
+    {
+      track: reelTracks[1],
+      pool: teasePool(funnyItems.map(textSlotCell)),
+      winner: exile ? questionCell() : textSlotCell(item),
+    },
+    {
+      track: reelTracks[2],
+      pool: teasePool(playStyles.map((s) => textSlotCell(s.name))),
+      winner: exile ? questionCell() : textSlotCell(style.name),
+    },
   ];
-  const durations = [1600, 2400, 3200];
+
+  const durations = exile ? [1800, 2900, 4100] : [1600, 2400, 3200];
+  const dread = ["Оракул нахмурился…", "Оракул отложил печать…", "Оракул достаёт билет…"];
 
   const jobs = setups.map((s, i) => {
     const cells = [];
@@ -331,14 +369,22 @@ async function spinSlots() {
     cells.push(s.winner, randomItem(s.pool), randomItem(s.pool));
     s.track.innerHTML = cells.join("");
     const cellH = s.track.children[0].offsetHeight;
+
     return glide(s.track, "y", winnerIndex * cellH, durations[i] + Math.random() * 250).then(() => {
       s.track.children[winnerIndex].classList.add("winner");
-      haptic("selection");
+      if (exile) {
+        stopOracleChatter();
+        setOracle(dread[i]);
+        s.track.parentElement.classList.add("exile-hit");
+        haptic(i === 2 ? "error" : "warning");
+      } else {
+        haptic("selection");
+      }
     });
   });
 
   await Promise.all(jobs);
-  return { hero, item, style };
+  return { exile, hero, item, style };
 }
 
 function findCombo(hero, item, style) {
@@ -400,15 +446,92 @@ function renderContract(c) {
       <div class="contract-ps">🔮 P.S. ${c.tip}</div>
       <div class="stamp">Принято</div>
     </div>`;
+  hideActionButtons();
   acceptBtn.classList.remove("hidden");
   acceptBtn.disabled = false;
   acceptBtn.textContent = "🤝 Принять контракт";
-  rerollBtn.classList.add("hidden");
   lastShare = { kind: "contract", data: c };
   revealResult();
 }
 
-// ---------- Контракт ----------
+// ---------- Билет в одну сторону ----------
+function renderTicket(t) {
+  resultCard.innerHTML = `
+    <div class="ticket" id="ticketCard">
+      <div class="ticket-head">
+        <span class="ticket-title">🎫 Билет в одну сторону</span>
+        <span class="ticket-serial">№${t.serial} · рейс ${t.flight}</span>
+      </div>
+
+      <div class="ticket-body">
+        <div class="ticket-route">
+          <div class="route-side">
+            <div class="route-code">${t.from}</div>
+            <div class="route-full">${t.fromFull}</div>
+          </div>
+          <div class="route-plane">✈️</div>
+          <div class="route-side to">
+            <div class="route-code">${t.to}</div>
+            <div class="route-full">${t.toFull}</div>
+          </div>
+        </div>
+
+        <div class="ticket-line"></div>
+
+        <div class="ticket-fields">
+          <div class="tf"><div class="tf-label">Пассажир</div><div class="tf-value">${t.passenger}</div></div>
+          <div class="tf"><div class="tf-label">Место (K/D/A)</div><div class="tf-value warn">${t.seat}</div></div>
+          <div class="tf"><div class="tf-label">Выход</div><div class="tf-value">${t.gate}</div></div>
+          <div class="tf"><div class="tf-label">Посадка</div><div class="tf-value good">${t.boarding}</div></div>
+          <div class="tf"><div class="tf-label">Часов в доте</div><div class="tf-value">${t.hours}</div></div>
+          <div class="tf"><div class="tf-label">Прогресс</div><div class="tf-value warn">${t.progress}</div></div>
+        </div>
+
+        <div class="ticket-sad">${t.description}</div>
+
+        <div class="ticket-section-label">🧳 Багаж · разрешено к провозу</div>
+        <ul class="ticket-baggage">${t.baggage.map((b) => `<li>${b}</li>`).join("")}</ul>
+
+        <div class="ticket-swap">
+          <div class="swap-card leave">
+            <div class="swap-label">Что оставляешь</div>
+            <div class="swap-text">${t.leave}</div>
+          </div>
+          <div class="swap-card find">
+            <div class="swap-label">Что найдёшь там</div>
+            <div class="swap-text">${t.find}</div>
+          </div>
+        </div>
+
+        <div class="ticket-farewell">🕯 ${t.farewell}</div>
+      </div>
+
+      <div class="ticket-stub">
+        <div class="barcode"></div>
+        <div class="barcode-text">DTA · LOL · ${t.serial} · ONE WAY</div>
+      </div>
+
+      <div class="ticket-stamp">Выдан</div>
+    </div>`;
+  hideActionButtons();
+  takeBtn.classList.remove("hidden");
+  takeBtn.disabled = false;
+  takeBtn.textContent = "🎫 Забрать билет";
+  lastShare = { kind: "ticket", data: t };
+  revealResult();
+}
+
+function takeTicket() {
+  if (!lastShare || lastShare.kind !== "ticket") return;
+  const card = $("ticketCard");
+  if (card) card.classList.add("taken");
+  takeBtn.disabled = true;
+  takeBtn.textContent = "✓ Билет забран";
+  haptic("success");
+  showToast("🎫 Билет забран. Оракул не провожает. Он выдохнул.");
+}
+
+// ---------- Контракт: принятие ----------
 function refreshBanner() {
   const raw = storeGet("oracle_contract");
   if (!raw) { bannerEl.classList.add("hidden"); return; }
@@ -453,9 +576,11 @@ async function spin() {
   spinBtn.disabled = true;
   againBtn.disabled = true;
   acceptBtn.disabled = true;
+  takeBtn.disabled = true;
   rerollBtn.disabled = true;
   spinBtn.textContent = "🔮 Оракул думает…";
   resultEl.classList.add("hidden");
+  document.body.classList.remove("exiled");
   haptic("tap");
   startOracleChatter();
 
@@ -468,18 +593,30 @@ async function spin() {
       renderProphecy(res);
       setOracle("Судьба сказала своё слово. Приговор оглашён. 📜");
     } else {
-      const { hero, item, style } = await spinSlots();
-      haptic("warning");
-      const contract = makeContract(hero, item, style);
-      await wait(450);
-      renderContract(contract);
-      setOracle("Контракт составлен. Смягчающих обстоятельств нет. 🎰");
+      const outcome = await spinSlots();
+      if (outcome.exile) {
+        stopOracleChatter();
+        setOracle("Оракул молчит. Он выписал билет. 🎫");
+        document.body.classList.add("exiled");
+        clearTimeout(exileTimer);
+        exileTimer = setTimeout(() => document.body.classList.remove("exiled"), 2600);
+        const ticket = makeTicket(nextSerial());
+        await wait(900);
+        renderTicket(ticket);
+      } else {
+        haptic("warning");
+        const contract = makeContract(outcome.hero, outcome.item, outcome.style);
+        await wait(450);
+        renderContract(contract);
+        setOracle("Контракт составлен. Смягчающих обстоятельств нет. 🎰");
+      }
     }
   } finally {
     stopOracleChatter();
     spinning = false;
     spinBtn.disabled = false;
     againBtn.disabled = false;
+    takeBtn.disabled = false;
     rerollBtn.disabled = false;
     spinBtn.textContent = "🎲 Крутить";
   }
@@ -492,17 +629,35 @@ function setMode(next) {
   modeButtons.forEach((b) => b.classList.toggle("active", b.dataset.mode === mode));
   rouletteEl.classList.toggle("hidden", mode !== "roulette");
   slotsEl.classList.toggle("hidden", mode !== "slots");
+  slotsHint.classList.toggle("hidden", mode !== "slots");
   resultEl.classList.add("hidden");
-  acceptBtn.classList.add("hidden");
-  rerollBtn.classList.add("hidden");
+  hideActionButtons();
+  document.body.classList.remove("exiled");
+  reelTracks.forEach((t) => t.parentElement.classList.remove("exile-hit"));
   setOracle(mode === "roulette"
     ? "Лента судьбы заряжена. Жми «Крутить»."
-    : "Барабаны заряжены злостью. Жми «Крутить».");
+    : "Барабаны заряжены злостью. Жми «Крутить». ❓❓❓ — билет.");
   haptic("selection");
 }
 
 // ---------- Поделиться ----------
 function buildShareText(share) {
+  if (share.kind === "ticket") {
+    const t = share.data;
+    return [
+      `🎫 БИЛЕТ В ОДНУ СТОРОНУ №${t.serial} · рейс ${t.flight}`,
+      `${t.from} → ${t.to}`,
+      `Пассажир: ${t.passenger}`,
+      `Место (K/D/A): ${t.seat} · Выход: ${t.gate} · Посадка: ${t.boarding}`,
+      `Часов в доте: ${t.hours} · Прогресс: ${t.progress}`,
+      "",
+      t.description,
+      "",
+      `🧳 Багаж: ${t.baggage.join(", ")}`,
+      `🕯 ${t.farewell}`,
+      "❓❓❓ — оракул решил за меня.",
+    ].join("\n");
+  }
   if (share.kind === "prophecy") {
     const { hero, guide, tips, item, style, extras } = share.data;
     return [
@@ -598,6 +753,7 @@ function init() {
   againBtn.addEventListener("click", spin);
   shareBtn.addEventListener("click", shareResult);
   acceptBtn.addEventListener("click", acceptContract);
+  takeBtn.addEventListener("click", takeTicket);
   rerollBtn.addEventListener("click", rerollVerdict);
   bannerDone.addEventListener("click", finishContract);
   modeButtons.forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
